@@ -632,36 +632,48 @@ static void stop_input_hook()
 // ksud: module support
 void ksu_ksud_init()
 {
-    #ifdef CONFIG_KPROBES
-	int ret;
+#ifdef CONFIG_KPROBES
+int ret = register_kprobe(&execve_kp);
+if (ret < 0) {
+    pr_err("Failed to register execve_kp: %d\n", ret);
+    return ret;
+}
+pr_info("ksud: execve_kp registered\n");
 
-	ret = register_kprobe(&execve_kp);
-	pr_info("ksud: execve_kp: %d\n", ret);
+ret = register_kprobe(&vfs_read_kp);
+if (ret < 0) {
+    pr_err("Failed to register vfs_read_kp: %d\n", ret);
+    unregister_kprobe(&execve_kp);
+    return ret;
+}
+pr_info("ksud: vfs_read_kp registered\n");
 
-	ret = register_kprobe(&vfs_read_kp);
-	pr_info("ksud: vfs_read_kp: %d\n", ret);
-
-	ret = register_kprobe(&input_event_kp);
-	pr_info("ksud: input_event_kp: %d\n", ret);
-
-	INIT_WORK(&stop_vfs_read_work, do_stop_vfs_read_hook);
-	INIT_WORK(&stop_execve_hook_work, do_stop_execve_hook);
-	INIT_WORK(&stop_input_hook_work, do_stop_input_hook);
-
+ret = register_kprobe(&input_event_kp);
+if (ret < 0) {
+    pr_err("Failed to register input_event_kp: %d\n", ret);
+    unregister_kprobe(&execve_kp);
+    unregister_kprobe(&vfs_read_kp);
+    return ret;
+}
+pr_info("ksud: input_event_kp registered\n");
 #endif
 }
 
 void ksu_ksud_exit()
 {
 #ifdef CONFIG_KPROBES
-	unregister_kprobe(&execve_kp);
-	unregister_kprobe(&vfs_read_kp);
-	unregister_kprobe(&input_event_kp);
+    unregister_kprobe(&execve_kp);
+    unregister_kprobe(&vfs_read_kp);
+    unregister_kprobe(&input_event_kp);
+#endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION_5_10
-	flush_scheduled_work();
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
+    flush_scheduled_work();
 #else
-	cancel_delayed_work_sync();
+    cancel_delayed_work_sync(&stop_vfs_read_work);
+    cancel_delayed_work_sync(&stop_execve_hook_work);
+    cancel_delayed_work_sync(&stop_input_hook_work);
 #endif
-#endif
+
+    pr_info("ksud: module unloaded\n");
 }
