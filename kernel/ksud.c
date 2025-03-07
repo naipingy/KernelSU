@@ -630,33 +630,34 @@ static void stop_input_hook()
 }
 
 // ksud: module support
-void ksu_ksud_init()
+int ksu_ksud_init()
 {
 #ifdef CONFIG_KPROBES
-int ret = register_kprobe(&execve_kp);
-if (ret < 0) {
-    pr_err("Failed to register execve_kp: %d\n", ret);
-    return ret;
-}
-pr_info("ksud: execve_kp registered\n");
+    int ret = register_kprobe(&execve_kp);
+    if (ret < 0) {
+        pr_err("Failed to register execve_kp: %d\n", ret);
+        return ret;
+    }
+    pr_info("ksud: execve_kp registered\n");
 
-ret = register_kprobe(&vfs_read_kp);
-if (ret < 0) {
-    pr_err("Failed to register vfs_read_kp: %d\n", ret);
-    unregister_kprobe(&execve_kp);
-    return ret;
-}
-pr_info("ksud: vfs_read_kp registered\n");
+    ret = register_kprobe(&vfs_read_kp);
+    if (ret < 0) {
+        pr_err("Failed to register vfs_read_kp: %d\n", ret);
+        unregister_kprobe(&execve_kp);
+        return ret;
+    }
+    pr_info("ksud: vfs_read_kp registered\n");
 
-ret = register_kprobe(&input_event_kp);
-if (ret < 0) {
-    pr_err("Failed to register input_event_kp: %d\n", ret);
-    unregister_kprobe(&execve_kp);
-    unregister_kprobe(&vfs_read_kp);
-    return ret;
-}
-pr_info("ksud: input_event_kp registered\n");
+    ret = register_kprobe(&input_event_kp);
+    if (ret < 0) {
+        pr_err("Failed to register input_event_kp: %d\n", ret);
+        unregister_kprobe(&execve_kp);
+        unregister_kprobe(&vfs_read_kp);
+        return ret;
+    }
+    pr_info("ksud: input_event_kp registered\n");
 #endif
+    return 0; 
 }
 
 void ksu_ksud_exit()
@@ -670,9 +671,9 @@ void ksu_ksud_exit()
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
     flush_scheduled_work();
 #else
-    cancel_delayed_work_sync(&stop_vfs_read_work);
-    cancel_delayed_work_sync(&stop_execve_hook_work);
-    cancel_delayed_work_sync(&stop_input_hook_work);
+    cancel_work_sync(&stop_vfs_read_work);
+    cancel_work_sync(&stop_execve_hook_work);
+    cancel_work_sync(&stop_input_hook_work);
 #endif
 
     pr_info("ksud: module unloaded\n");
