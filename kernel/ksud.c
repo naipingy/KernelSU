@@ -660,7 +660,7 @@ void ksu_ksud_exit()
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION_5_10
 	flush_scheduled_work();
-else
+#else
 	cancel_delayed_work_sync();
 #endif
 #endif
